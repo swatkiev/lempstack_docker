@@ -1,0 +1,67 @@
+# Версия docker-compose
+version: '3'
+# Список наших сервисов (контейнеров)
+services:
+    nginx:
+      # используем свой образ nginx stream
+        build: ./images/nginx
+        container_name: nginx
+        restart: always
+        # маршрутизируем порты
+        ports:
+            - "80:80"
+        # монтируем директории, слева директории на основной машине, справа - куда они монтируются в контейнере
+        volumes:
+            - ./hosts/http:/opt/nginx/http.conf.d
+            - ./hosts/stream:/opt/nginx/stream.conf.d
+            - ./www:/var/www
+            - ./logs:/var/log/nginx
+        # nginx должен общаться с php контейнером
+        links:
+            - php
+        networks:
+            - lemp4docker
+    php:
+        # у нас свой образ для PHP, указываем путь к нему и говорим что его надо собрать
+        build: ./images/php
+        container_name: php
+        restart: always
+        # этот образ будет общаться с mysql
+        links:
+            - mysql
+        # монтируем директорию с проектами
+        volumes:
+            - ./www:/var/www
+        networks:
+            - lemp4docker
+    mysql:
+        image: mariadb
+        container_name: mysql
+        restart: always
+        ports:
+            - "3306:3306"
+        volumes:
+            - ./mysql:/var/lib/mysql
+        # задаем пароль для root пользователя
+        environment:
+            MYSQL_ROOT_PASSWORD: secret
+        networks:
+            - lemp4docker
+    pma:
+        image: phpmyadmin/phpmyadmin
+        container_name: pma
+        restart: always
+        links:
+            - mysql:mysql
+        ports:
+            - 8183:80
+        environment:
+            PMA_HOST: mysql
+            MYSQL_USERNAME: root
+            MYSQL_ROOT_PASSWORD: secret
+        networks:
+            - lemp4docker
+# задаем название сети и драйвер
+networks:
+    lemp4docker:
+        driver: bridge
